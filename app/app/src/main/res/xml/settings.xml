@@ -2,6 +2,18 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
+    <PreferenceCategory android:title="@string/debrid_provider">
+
+        <DropDownPreference
+            android:defaultValue="real_debrid"
+            android:entries="@array/debrid_providers"
+            android:entryValues="@array/debrid_provider_values"
+            android:key="debrid_provider"
+            android:title="@string/select_provider"
+            app:useSimpleSummaryProvider="true" />
+
+    </PreferenceCategory>
+
     <PreferenceCategory
         android:summary="@string/restart_to_apply"
         android:title="@string/title_aspect">

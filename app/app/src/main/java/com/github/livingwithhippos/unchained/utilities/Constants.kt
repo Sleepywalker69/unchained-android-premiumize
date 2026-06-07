@@ -8,6 +8,8 @@ const val OPEN_SOURCE_GRANT_TYPE = "http://oauth.net/grant_type/device/1.0"
 
 const val BASE_URL = "https://api.real-debrid.com/rest/1.0/"
 const val BASE_AUTH_URL = "https://api.real-debrid.com/oauth/v2/"
+const val PREMIUMIZE_BASE_URL = "https://www.premiumize.me/"
+const val PREMIUMIZE_AUTH_URL = "https://www.premiumize.me/"
 const val REFERRAL_LINK = "http://real-debrid.com/?id=78841"
 const val ACCOUNT_LINK = "https://real-debrid.com/account"
 const val DEFAULT_PLUGINS_REPOSITORY_LINK =

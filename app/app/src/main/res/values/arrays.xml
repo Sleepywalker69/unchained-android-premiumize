@@ -147,4 +147,14 @@
         <attr name="bottomRightColor" format="color" />
     </declare-styleable>
 
+    <string-array name="debrid_providers">
+        <item>@string/real_debrid</item>
+        <item>@string/premiumize</item>
+    </string-array>
+
+    <string-array name="debrid_provider_values">
+        <item>real_debrid</item>
+        <item>premiumize</item>
+    </string-array>
+
 </resources>

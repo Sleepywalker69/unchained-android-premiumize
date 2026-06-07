@@ -33,9 +33,24 @@ import com.github.livingwithhippos.unchained.data.remote.UserApiHelperImpl
 import com.github.livingwithhippos.unchained.data.remote.VariousApi
 import com.github.livingwithhippos.unchained.data.remote.VariousApiHelper
 import com.github.livingwithhippos.unchained.data.remote.VariousApiHelperImpl
+import com.github.livingwithhippos.unchained.data.remote.premiumize.PremiumizeAccountApi
+import com.github.livingwithhippos.unchained.data.remote.premiumize.PremiumizeAccountApiHelper
+import com.github.livingwithhippos.unchained.data.remote.premiumize.PremiumizeAccountApiHelperImpl
+import com.github.livingwithhippos.unchained.data.remote.premiumize.PremiumizeAuthApi
+import com.github.livingwithhippos.unchained.data.remote.premiumize.PremiumizeCacheApi
+import com.github.livingwithhippos.unchained.data.remote.premiumize.PremiumizeCacheApiHelper
+import com.github.livingwithhippos.unchained.data.remote.premiumize.PremiumizeCacheApiHelperImpl
+import com.github.livingwithhippos.unchained.data.remote.premiumize.PremiumizeFolderApi
+import com.github.livingwithhippos.unchained.data.remote.premiumize.PremiumizeFolderApiHelper
+import com.github.livingwithhippos.unchained.data.remote.premiumize.PremiumizeFolderApiHelperImpl
+import com.github.livingwithhippos.unchained.data.remote.premiumize.PremiumizeTransferApi
+import com.github.livingwithhippos.unchained.data.remote.premiumize.PremiumizeTransferApiHelper
+import com.github.livingwithhippos.unchained.data.remote.premiumize.PremiumizeTransferApiHelperImpl
 import com.github.livingwithhippos.unchained.plugins.Parser
 import com.github.livingwithhippos.unchained.utilities.BASE_AUTH_URL
 import com.github.livingwithhippos.unchained.utilities.BASE_URL
+import com.github.livingwithhippos.unchained.utilities.PREMIUMIZE_BASE_URL
+import com.github.livingwithhippos.unchained.utilities.PREMIUMIZE_AUTH_URL
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -346,4 +361,76 @@ object ApiFactory {
         @ClassicClient classicClient: OkHttpClient,
         @DOHClient dohClient: OkHttpClient,
     ): Parser = Parser(preferences, classicClient, dohClient)
+
+    // Premiumize networking
+
+    @Provides
+    @Singleton
+    @PremiumizeRetrofit
+    fun premiumizeRetrofit(@ClassicClient okHttpClient: OkHttpClient): Retrofit =
+        Retrofit.Builder()
+            .client(okHttpClient)
+            .baseUrl(PREMIUMIZE_BASE_URL)
+            .addConverterFactory(ScalarsConverterFactory.create())
+            .addConverterFactory(MoshiConverterFactory.create())
+            .build()
+
+    @Provides
+    @Singleton
+    @PremiumizeAuthRetrofit
+    fun premiumizeAuthRetrofit(@ClassicClient okHttpClient: OkHttpClient): Retrofit =
+        Retrofit.Builder()
+            .client(okHttpClient)
+            .baseUrl(PREMIUMIZE_AUTH_URL)
+            .addConverterFactory(MoshiConverterFactory.create())
+            .build()
+
+    @Provides
+    @Singleton
+    fun providePremiumizeTransferApi(@PremiumizeRetrofit retrofit: Retrofit): PremiumizeTransferApi =
+        retrofit.create(PremiumizeTransferApi::class.java)
+
+    @Provides
+    @Singleton
+    fun providePremiumizeTransferApiHelper(
+        apiHelper: PremiumizeTransferApiHelperImpl
+    ): PremiumizeTransferApiHelper = apiHelper
+
+    @Provides
+    @Singleton
+    fun providePremiumizeFolderApi(@PremiumizeRetrofit retrofit: Retrofit): PremiumizeFolderApi =
+        retrofit.create(PremiumizeFolderApi::class.java)
+
+    @Provides
+    @Singleton
+    fun providePremiumizeFolderApiHelper(
+        apiHelper: PremiumizeFolderApiHelperImpl
+    ): PremiumizeFolderApiHelper = apiHelper
+
+    @Provides
+    @Singleton
+    fun providePremiumizeCacheApi(@PremiumizeRetrofit retrofit: Retrofit): PremiumizeCacheApi =
+        retrofit.create(PremiumizeCacheApi::class.java)
+
+    @Provides
+    @Singleton
+    fun providePremiumizeCacheApiHelper(
+        apiHelper: PremiumizeCacheApiHelperImpl
+    ): PremiumizeCacheApiHelper = apiHelper
+
+    @Provides
+    @Singleton
+    fun providePremiumizeAccountApi(@PremiumizeRetrofit retrofit: Retrofit): PremiumizeAccountApi =
+        retrofit.create(PremiumizeAccountApi::class.java)
+
+    @Provides
+    @Singleton
+    fun providePremiumizeAccountApiHelper(
+        apiHelper: PremiumizeAccountApiHelperImpl
+    ): PremiumizeAccountApiHelper = apiHelper
+
+    @Provides
+    @Singleton
+    fun providePremiumizeAuthApi(@PremiumizeAuthRetrofit retrofit: Retrofit): PremiumizeAuthApi =
+        retrofit.create(PremiumizeAuthApi::class.java)
 }
