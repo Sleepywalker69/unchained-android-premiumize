@@ -49,22 +49,34 @@ jobs:
   build-release:
     name: Build Release APK
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master' && github.repository_owner != 'null'
+    env:
+      HAS_KEYSTORE: ${{ secrets.KEYSTORE != '' }}
     steps:
+      - name: Check signing secrets
+        if: env.HAS_KEYSTORE != 'true'
+        run: |
+          echo "::notice::Skipping release build — signing secrets not configured"
+          exit 0
       - name: Checkout
+        if: env.HAS_KEYSTORE == 'true'
         uses: actions/checkout@v4
       - name: Setup Java
+        if: env.HAS_KEYSTORE == 'true'
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
       - name: Setup Gradle
+        if: env.HAS_KEYSTORE == 'true'
         uses: gradle/actions/setup-gradle@v4
       - name: Retrieve keystore
+        if: env.HAS_KEYSTORE == 'true'
         env:
           ENCODED_KEYSTORE: ${{ secrets.KEYSTORE }}
         run: echo "$ENCODED_KEYSTORE" | base64 --decode > release.pfk
       - name: Build release APK
+        if: env.HAS_KEYSTORE == 'true'
         env:
           KEYSTORE: release.pfk
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -72,6 +84,7 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew clean assembleRelease --stacktrace
       - name: Upload release APK
+        if: env.HAS_KEYSTORE == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: apk-release
