@@ -7,7 +7,7 @@ on:
       - master
 defaults:
   run:
-    working-directory: ${{ github.workspace }}/app
+    working-directory: ./app
 jobs:
   lint:
     name: Run Linter
@@ -44,7 +44,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: apk-debug
-          path: ${{ github.workspace }}/app/app/build/outputs/apk/debug/*.apk
+          path: app/app/build/outputs/apk/debug/*.apk
 
   build-release:
     name: Build Release APK
@@ -63,10 +63,10 @@ jobs:
       - name: Retrieve keystore
         env:
           ENCODED_KEYSTORE: ${{ secrets.KEYSTORE }}
-        run: echo "$ENCODED_KEYSTORE" | base64 --decode > ${{ github.workspace }}/app/release.pfk
+        run: echo "$ENCODED_KEYSTORE" | base64 --decode > release.pfk
       - name: Build release APK
         env:
-          KEYSTORE: ${{ github.workspace }}/app/release.pfk
+          KEYSTORE: release.pfk
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
@@ -75,4 +75,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: apk-release
-          path: ${{ github.workspace }}/app/app/build/outputs/apk/release/*.apk
+          path: app/app/build/outputs/apk/release/*.apk
