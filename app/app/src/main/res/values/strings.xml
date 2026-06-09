@@ -770,4 +770,22 @@
     <string name="please_select_plugins">Please select at least a plugin</string>
     <string name="disabled">Disabled</string>
     <string name="prowlarr" translatable="false">Prowlarr</string>
+    <!-- Premiumize -->
+    <string name="debrid_provider">Debrid Provider</string>
+    <string name="select_provider">Select Provider</string>
+    <string name="real_debrid" translatable="false">Real-Debrid</string>
+    <string name="premiumize" translatable="false">Premiumize</string>
+    <string name="premiumize_api_key">API Key</string>
+    <string name="premiumize_customer_id">Customer ID</string>
+    <string name="premiumize_login">Log in with Premiumize</string>
+    <string name="premiumize_login_api_key">Log in with API Key</string>
+    <string name="premiumize_login_oauth">Log in with OAuth</string>
+    <string name="premiumize_cache_check">Cache Check</string>
+    <string name="cached">Cached</string>
+    <string name="not_cached">Not Cached</string>
+    <string name="provider_switch_warning">Switching providers will change which service handles your downloads.</string>
+    <string name="provider_changed_restart">Provider changed, restart the app to apply</string>
+    <string name="cache_check_hint">Paste magnet links or torrent hashes</string>
+    <string name="cache_check_no_hashes">No valid hashes found in the input</string>
+    <string name="cache_check_no_results">No results returned</string>
 </resources>

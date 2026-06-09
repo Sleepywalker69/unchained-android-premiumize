@@ -1,6 +1,8 @@
 package com.github.livingwithhippos.unchained.di
 
 import android.content.Context
+import com.github.livingwithhippos.unchained.data.local.PremiumizeStore
+import com.github.livingwithhippos.unchained.data.local.PremiumizeStoreImpl
 import com.github.livingwithhippos.unchained.data.local.ProtoStore
 import com.github.livingwithhippos.unchained.data.local.ProtoStoreImpl
 import dagger.Module
@@ -19,5 +21,11 @@ object DataStoreModule {
     @Singleton
     fun provideDataStore(@ApplicationContext appContext: Context): ProtoStore {
         return ProtoStoreImpl(appContext)
+    }
+
+    @Provides
+    @Singleton
+    fun providePremiumizeStore(@ApplicationContext appContext: Context): PremiumizeStore {
+        return PremiumizeStoreImpl(appContext)
     }
 }

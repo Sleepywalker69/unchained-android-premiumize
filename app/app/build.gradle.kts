@@ -198,6 +198,8 @@ dependencies {
     ksp(libs.hilt.compiler)
     implementation(libs.hilt.navigation)
     implementation(libs.hilt.android)
+    implementation(libs.hilt.work)
+    ksp(libs.hilt.work.compiler)
 
     implementation(libs.paging.runtime)
 

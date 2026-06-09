@@ -186,11 +186,17 @@ class DownloadDetailsFragment : UnchainedFragment(), DownloadDetailsListener {
                 binding.llFabSendToPlayer.visibility = View.VISIBLE
             else binding.llFabSendToPlayer.visibility = View.GONE
 
-            if (viewModel.getButtonVisibilityPreference(SHOW_STREAMING_BUTTON))
+            if (
+                viewModel.isStreamingSupported() &&
+                    viewModel.getButtonVisibilityPreference(SHOW_STREAMING_BUTTON)
+            )
                 binding.llFabPickStreaming.visibility = View.VISIBLE
             else binding.llFabPickStreaming.visibility = View.GONE
 
-            if (viewModel.getButtonVisibilityPreference(SHOW_TRANSCODING_BUTTON))
+            if (
+                viewModel.isStreamingSupported() &&
+                    viewModel.getButtonVisibilityPreference(SHOW_TRANSCODING_BUTTON)
+            )
                 binding.llFabLoadStreams.visibility = View.VISIBLE
             else binding.llFabLoadStreams.visibility = View.GONE
         } else {

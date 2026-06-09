@@ -1,84 +1,77 @@
 name: Build
 on:
-  # Trigger on every pull request and on push
-  # to the `master` branch.
   pull_request:
   push:
     branches:
       - master
 defaults:
   run:
-    # github does not appreciate ~ as home indicator. Prefer the full path.
-    working-directory: /home/runner/work/unchained-android/unchained-android/app
+    working-directory: ${{ github.workspace }}/app
 jobs:
-  lint-release:
-    name: Run Release Linter
+  lint:
+    name: Run Linter
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
-      - name: Setup
-        uses: actions/setup-java@v5
+        uses: actions/checkout@v4
+      - name: Setup Java
+        uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
-      - name: Run tests
+        uses: gradle/actions/setup-gradle@v4
+      - name: Run ktfmt check
         run: ./gradlew ktfmtCheck
-  build:
+
+  build-debug:
+    name: Build Debug APK
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
-      - name: Setup
-        uses: actions/setup-java@v5
+        uses: actions/checkout@v4
+      - name: Setup Java
+        uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
-      - name: Retrieve keystore for apk signing
+        uses: gradle/actions/setup-gradle@v4
+      - name: Build debug APK
+        run: ./gradlew assembleDebug --stacktrace
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-debug
+          path: ${{ github.workspace }}/app/app/build/outputs/apk/debug/*.apk
+
+  build-release:
+    name: Build Release APK
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+      - name: Retrieve keystore
         env:
           ENCODED_KEYSTORE: ${{ secrets.KEYSTORE }}
-        run: echo "$ENCODED_KEYSTORE" | base64 --decode > /home/runner/work/unchained-android/unchained-android/app/release.pfk
-      - name: Build the app
+        run: echo "$ENCODED_KEYSTORE" | base64 --decode > ${{ github.workspace }}/app/release.pfk
+      - name: Build release APK
         env:
-          KEYSTORE: /home/runner/work/unchained-android/unchained-android/app/release.pfk
+          KEYSTORE: ${{ github.workspace }}/app/release.pfk
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew clean assembleRelease --stacktrace
-      - name: Save apk
-        uses: actions/upload-artifact@v6
+      - name: Upload release APK
+        uses: actions/upload-artifact@v4
         with:
-          name: apk
-          path: /home/runner/work/unchained-android/unchained-android/app/app/build/outputs/apk/release/*.apk
-  build-debug:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-      - name: Setup
-        uses: actions/setup-java@v5
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
-      - name: Retrieve keystore for apk signing
-        env:
-          ENCODED_KEYSTORE: ${{ secrets.KEYSTORE }}
-        run: echo "$ENCODED_KEYSTORE" | base64 --decode > /home/runner/work/unchained-android/unchained-android/app/release.pfk
-      - name: Build the app
-        env:
-          KEYSTORE: /home/runner/work/unchained-android/unchained-android/app/release.pfk
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew clean assembleDebug --stacktrace
-      - name: Save apk
-        uses: actions/upload-artifact@v6
-        with:
-          name: apk-debug
-          path: /home/runner/work/unchained-android/unchained-android/app/app/build/outputs/apk/debug/*.apk
+          name: apk-release
+          path: ${{ github.workspace }}/app/app/build/outputs/apk/release/*.apk

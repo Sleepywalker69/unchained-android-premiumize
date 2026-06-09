@@ -17,7 +17,10 @@ import androidx.preference.EditTextPreference
 import androidx.preference.ListPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
+import androidx.preference.DropDownPreference
 import com.github.livingwithhippos.unchained.R
+import com.github.livingwithhippos.unchained.data.model.domain.DebridProvider
+import com.github.livingwithhippos.unchained.data.repository.ProviderManager
 import com.github.livingwithhippos.unchained.settings.viewmodel.SettingEvent
 import com.github.livingwithhippos.unchained.settings.viewmodel.SettingsViewModel
 import com.github.livingwithhippos.unchained.utilities.FEEDBACK_URL
@@ -36,6 +39,8 @@ import timber.log.Timber
 @AndroidEntryPoint
 class SettingsFragment : PreferenceFragmentCompat() {
     @Inject lateinit var preferences: SharedPreferences
+
+    @Inject lateinit var providerManager: ProviderManager
 
     private val viewModel: SettingsViewModel by activityViewModels()
 
@@ -84,6 +89,21 @@ class SettingsFragment : PreferenceFragmentCompat() {
             true
         }
 
+        findPreference<DropDownPreference>("debrid_provider")?.setOnPreferenceChangeListener {
+            _,
+            newValue ->
+            val newProvider =
+                if (newValue == "premiumize") DebridProvider.PREMIUMIZE
+                else DebridProvider.REAL_DEBRID
+            if (newProvider != providerManager.getActiveProvider()) {
+                providerManager.setActiveProvider(newProvider)
+                // the auth flow for the new provider starts on the next app launch
+                context?.showToast(R.string.provider_changed_restart)
+                activity?.finishAffinity()
+            }
+            true
+        }
+
         findPreference<EditTextPreference>("filter_size_mb")?.setOnBindEditTextListener {
             it.keyListener = DigitsKeyListener.getInstance("0123456789")
         }
@@ -105,6 +125,17 @@ class SettingsFragment : PreferenceFragmentCompat() {
             // SettingsFragmentDirections.actionSettingsFragmentToRemoteDeviceListFragment()
             findNavController().navigate(action)
             true
+        }
+
+        // hide the Real Debrid only options when another provider is active
+        if (providerManager.getActiveProvider() != DebridProvider.REAL_DEBRID) {
+            listOf(
+                    "show_streaming",
+                    "show_load_stream_button",
+                    "use_referral_key",
+                    "update_regexps",
+                )
+                .forEach { findPreference<Preference>(it)?.isVisible = false }
         }
     }
 

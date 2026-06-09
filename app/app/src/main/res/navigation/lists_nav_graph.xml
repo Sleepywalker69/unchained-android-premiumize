@@ -35,7 +35,16 @@
         <action
             android:id="@+id/action_list_tabs_dest_to_torrentProcessingFragment"
             app:destination="@id/torrentProcessingFragment" />
+        <action
+            android:id="@+id/action_list_tabs_dest_to_cacheCheckFragment"
+            app:destination="@id/cache_check_dest" />
     </fragment>
+
+    <fragment
+        android:id="@+id/cache_check_dest"
+        android:name="com.github.livingwithhippos.unchained.cachecheck.view.CacheCheckFragment"
+        android:label="@string/premiumize_cache_check"
+        tools:layout="@layout/fragment_cache_check" />
 
     <fragment
         android:id="@+id/torrent_details_dest"

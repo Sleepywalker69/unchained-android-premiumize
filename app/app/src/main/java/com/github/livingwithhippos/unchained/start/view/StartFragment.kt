@@ -7,6 +7,7 @@ import android.view.ViewGroup
 import com.github.livingwithhippos.unchained.R
 import com.github.livingwithhippos.unchained.base.UnchainedFragment
 import com.github.livingwithhippos.unchained.data.model.UserAction
+import com.github.livingwithhippos.unchained.data.model.domain.DebridProvider
 import com.github.livingwithhippos.unchained.databinding.FragmentStartBinding
 import com.github.livingwithhippos.unchained.statemachine.authentication.FSMAuthenticationEvent
 import com.github.livingwithhippos.unchained.statemachine.authentication.FSMAuthenticationState
@@ -37,8 +38,14 @@ class StartFragment : UnchainedFragment() {
             if (it != null) {
                 when (it.peekContent()) {
                     FSMAuthenticationState.StartNewLogin -> {
+                        // route the user to the login screen of the active debrid provider
                         val action =
-                            StartFragmentDirections.actionStartFragmentToAuthenticationFragment()
+                            if (
+                                activityViewModel.getActiveProvider() == DebridProvider.PREMIUMIZE
+                            )
+                                StartFragmentDirections
+                                    .actionStartFragmentToPremiumizeAuthFragment()
+                            else StartFragmentDirections.actionStartFragmentToAuthenticationFragment()
                         safeNavigate(action)
                     }
                     FSMAuthenticationState.AuthenticatedOpenToken -> {

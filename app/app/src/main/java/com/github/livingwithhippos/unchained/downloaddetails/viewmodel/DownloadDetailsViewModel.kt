@@ -10,8 +10,9 @@ import com.github.livingwithhippos.unchained.data.local.CompleteRemoteServiceDet
 import com.github.livingwithhippos.unchained.data.local.RemoteServiceType
 import com.github.livingwithhippos.unchained.data.model.KodiDevice
 import com.github.livingwithhippos.unchained.data.model.Stream
-import com.github.livingwithhippos.unchained.data.repository.DownloadRepository
+import com.github.livingwithhippos.unchained.data.model.domain.DebridProvider
 import com.github.livingwithhippos.unchained.data.repository.KodiRepository
+import com.github.livingwithhippos.unchained.data.repository.ProviderManager
 import com.github.livingwithhippos.unchained.data.repository.ServiceRepository
 import com.github.livingwithhippos.unchained.data.repository.StreamingRepository
 import com.github.livingwithhippos.unchained.data.repository.VLCRemoteRepository
@@ -31,7 +32,7 @@ class DownloadDetailsViewModel
 constructor(
     private val preferences: SharedPreferences,
     private val streamingRepository: StreamingRepository,
-    private val downloadRepository: DownloadRepository,
+    private val providerManager: ProviderManager,
     private val kodiRepository: KodiRepository,
     private val remoteServiceRepository: VLCRemoteRepository,
     private val serviceRepository: ServiceRepository,
@@ -42,6 +43,10 @@ constructor(
     val messageLiveData = MutableLiveData<Event<DownloadDetailsMessage>>()
     val eventLiveData = MutableLiveData<Event<DownloadEvent>>()
 
+    /** The streaming transcoding endpoints are a Real Debrid only feature */
+    fun isStreamingSupported(): Boolean =
+        providerManager.getActiveProvider() == DebridProvider.REAL_DEBRID
+
     fun fetchStreamingInfo(id: String) {
         viewModelScope.launch {
             val streamingInfo = streamingRepository.getStreams(id)
@@ -51,7 +56,7 @@ constructor(
 
     fun deleteDownload(id: String) {
         viewModelScope.launch {
-            val deleted = downloadRepository.deleteDownload(id)
+            val deleted = providerManager.getRepository().deleteDownload(id)
             if (deleted == null) deletedDownloadLiveData.postEvent(-1)
             else deletedDownloadLiveData.postEvent(1)
         }
