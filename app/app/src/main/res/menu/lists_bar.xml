@@ -25,4 +25,11 @@
         android:title="@string/delete_all_torrents"
         app:showAsAction="never" />
 
+    <item
+        android:id="@+id/cache_check"
+        android:contentDescription="@string/premiumize_cache_check"
+        android:title="@string/premiumize_cache_check"
+        android:visible="false"
+        app:showAsAction="never" />
+
 </menu>

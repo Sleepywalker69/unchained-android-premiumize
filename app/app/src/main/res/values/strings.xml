@@ -785,4 +785,7 @@
     <string name="not_cached">Not Cached</string>
     <string name="provider_switch_warning">Switching providers will change which service handles your downloads.</string>
     <string name="provider_changed_restart">Provider changed, restart the app to apply</string>
+    <string name="cache_check_hint">Paste magnet links or torrent hashes</string>
+    <string name="cache_check_no_hashes">No valid hashes found in the input</string>
+    <string name="cache_check_no_results">No results returned</string>
 </resources>

@@ -31,6 +31,7 @@ import com.github.livingwithhippos.unchained.data.model.DownloadItem
 import com.github.livingwithhippos.unchained.data.model.EmptyBodyError
 import com.github.livingwithhippos.unchained.data.model.NetworkError
 import com.github.livingwithhippos.unchained.data.model.TorrentItem
+import com.github.livingwithhippos.unchained.data.model.domain.DebridProvider
 import com.github.livingwithhippos.unchained.databinding.FragmentDownloadsListBinding
 import com.github.livingwithhippos.unchained.databinding.FragmentTabListsBinding
 import com.github.livingwithhippos.unchained.databinding.FragmentTorrentsListBinding
@@ -97,6 +98,10 @@ class ListsTabFragment : UnchainedFragment() {
                 override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {
                     menuInflater.inflate(R.menu.lists_bar, menu)
 
+                    // cache checking is only supported by Premiumize
+                    menu.findItem(R.id.cache_check)?.isVisible =
+                        activityViewModel.getActiveProvider() == DebridProvider.PREMIUMIZE
+
                     val searchItem = menu.findItem(R.id.search)
                     val searchView = searchItem.actionView as SearchView
                     // listens to the user typing in the search bar
@@ -142,6 +147,14 @@ class ListsTabFragment : UnchainedFragment() {
 
                         R.id.delete_all_torrents -> {
                             showDeleteAllDialog(TORRENTS_TAB)
+                            true
+                        }
+
+                        R.id.cache_check -> {
+                            val action =
+                                ListsTabFragmentDirections
+                                    .actionListTabsDestToCacheCheckFragment()
+                            findNavController().navigate(action)
                             true
                         }
 

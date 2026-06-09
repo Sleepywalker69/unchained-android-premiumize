@@ -126,6 +126,17 @@ class SettingsFragment : PreferenceFragmentCompat() {
             findNavController().navigate(action)
             true
         }
+
+        // hide the Real Debrid only options when another provider is active
+        if (providerManager.getActiveProvider() != DebridProvider.REAL_DEBRID) {
+            listOf(
+                    "show_streaming",
+                    "show_load_stream_button",
+                    "use_referral_key",
+                    "update_regexps",
+                )
+                .forEach { findPreference<Preference>(it)?.isVisible = false }
+        }
     }
 
     override fun onCreateView(
