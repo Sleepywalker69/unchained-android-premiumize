@@ -5,6 +5,7 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.map
 import androidx.lifecycle.switchMap
 import androidx.lifecycle.viewModelScope
 import androidx.paging.Pager
@@ -12,14 +13,15 @@ import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import androidx.paging.liveData
+import androidx.paging.map
 import com.github.livingwithhippos.unchained.data.model.DownloadItem
 import com.github.livingwithhippos.unchained.data.model.TorrentItem
 import com.github.livingwithhippos.unchained.data.model.UnchainedNetworkException
-import com.github.livingwithhippos.unchained.data.repository.DownloadRepository
-import com.github.livingwithhippos.unchained.data.repository.TorrentsRepository
-import com.github.livingwithhippos.unchained.data.repository.UnrestrictRepository
-import com.github.livingwithhippos.unchained.lists.model.DownloadPagingSource
-import com.github.livingwithhippos.unchained.lists.model.TorrentPagingSource
+import com.github.livingwithhippos.unchained.data.model.domain.toDownloadItem
+import com.github.livingwithhippos.unchained.data.model.domain.toTorrentItem
+import com.github.livingwithhippos.unchained.data.repository.ProviderManager
+import com.github.livingwithhippos.unchained.lists.model.UnchainedDownloadPagingSource
+import com.github.livingwithhippos.unchained.lists.model.UnchainedTransferPagingSource
 import com.github.livingwithhippos.unchained.utilities.DOWNLOADS_TAB
 import com.github.livingwithhippos.unchained.utilities.EitherResult
 import com.github.livingwithhippos.unchained.utilities.Event
@@ -31,7 +33,9 @@ import kotlin.math.min
 import kotlinx.coroutines.launch
 
 /**
- * A [ViewModel] subclass. It offers LiveData to be observed to populate lists with paging support
+ * A [ViewModel] subclass. It offers LiveData to be observed to populate lists with paging support.
+ * The lists are loaded through the active [com.github.livingwithhippos.unchained.data.repository.DebridRepository]
+ * so they work with any debrid provider.
  */
 @HiltViewModel
 class ListTabsViewModel
@@ -39,13 +43,21 @@ class ListTabsViewModel
 constructor(
     private val savedStateHandle: SavedStateHandle,
     private val preferences: SharedPreferences,
-    private val downloadRepository: DownloadRepository,
-    private val torrentsRepository: TorrentsRepository,
-    private val unrestrictRepository: UnrestrictRepository,
+    private val providerManager: ProviderManager,
 ) : ViewModel() {
 
     // stores the last query value
     private val queryLiveData = MutableLiveData<String>()
+
+    init {
+        // reload the lists when the user switches debrid provider, avoiding stale
+        // cross-provider data
+        viewModelScope.launch {
+            providerManager.providerChanges.collect {
+                queryLiveData.postValue(queryLiveData.value ?: "")
+            }
+        }
+    }
 
     // items are filtered returning only if their names contain the query
     val downloadsLiveData: LiveData<PagingData<DownloadItem>> =
@@ -53,9 +65,10 @@ constructor(
             val size = getPagingSize()
             val initialSize = max(size, INITIAL_LOAD)
             Pager(PagingConfig(pageSize = size, initialLoadSize = initialSize)) {
-                    DownloadPagingSource(downloadRepository, query)
+                    UnchainedDownloadPagingSource(providerManager.getRepository(), query)
                 }
                 .liveData
+                .map { pagingData -> pagingData.map { it.toDownloadItem() } }
                 .cachedIn(viewModelScope)
         }
 
@@ -64,9 +77,10 @@ constructor(
             val size = getPagingSize()
             val initialSize = max(size, INITIAL_LOAD)
             Pager(PagingConfig(pageSize = size, initialLoadSize = initialSize)) {
-                    TorrentPagingSource(torrentsRepository, query)
+                    UnchainedTransferPagingSource(providerManager.getRepository(), query)
                 }
                 .liveData
+                .map { pagingData -> pagingData.map { it.toTorrentItem() } }
                 .cachedIn(viewModelScope)
         }
 
@@ -86,13 +100,15 @@ constructor(
      */
     fun unrestrictTorrent(torrent: TorrentItem) {
         viewModelScope.launch {
-            val items = unrestrictRepository.getUnrestrictedLinkList(torrent.links)
-            val values =
-                items.filterIsInstance<EitherResult.Success<DownloadItem>>().map { it.success }
-            val errors =
-                items.filterIsInstance<EitherResult.Failure<UnchainedNetworkException>>().map {
-                    it.failure
+            val repository = providerManager.getRepository()
+            val values = mutableListOf<DownloadItem>()
+            val errors = mutableListOf<UnchainedNetworkException>()
+            torrent.links.forEach { link ->
+                when (val result = repository.unrestrictLink(link)) {
+                    is EitherResult.Success -> values.add(result.success.toDownloadItem())
+                    is EitherResult.Failure -> errors.add(result.failure)
                 }
+            }
 
             downloadItemLiveData.postEvent(values)
             if (errors.isNotEmpty()) errorsLiveData.postEvent(errors)
@@ -119,11 +135,13 @@ constructor(
 
     fun deleteAllDownloads() {
         viewModelScope.launch {
+            val repository = providerManager.getRepository()
             deletedDownloadLiveData.postEvent(0)
             var page = 1
-            val completeDownloadList = mutableListOf<DownloadItem>()
+            val completeDownloadList =
+                mutableListOf<com.github.livingwithhippos.unchained.data.model.domain.UnchainedDownload>()
             do {
-                val downloads = downloadRepository.getDownloads(0, page++, 50)
+                val downloads = repository.getDownloads(0, page++, 50)
                 completeDownloadList.addAll(downloads)
             } while (downloads.size >= 50)
 
@@ -132,7 +150,7 @@ constructor(
                 if (completeDownloadList.size / 10 < 15) 15 else completeDownloadList.size / 10
 
             completeDownloadList.forEachIndexed { index, item ->
-                downloadRepository.deleteDownload(item.id)
+                repository.deleteDownload(item.id)
                 if ((index + 1) % progressIndicator == 0)
                     deletedDownloadLiveData.postEvent(index + 1)
             }
@@ -143,9 +161,10 @@ constructor(
 
     fun deleteAllTorrents() {
         viewModelScope.launch {
+            val repository = providerManager.getRepository()
             do {
-                val torrents = torrentsRepository.getTorrentsList(0, 1, 50)
-                torrents.forEach { torrentsRepository.deleteTorrent(it.id) }
+                val torrents = repository.getTransferList(0, 1, 50)
+                torrents.forEach { repository.deleteTransfer(it.id) }
             } while (torrents.size >= 50)
 
             deletedTorrentLiveData.postEvent(TORRENTS_DELETED_ALL)
@@ -154,7 +173,8 @@ constructor(
 
     fun deleteTorrents(torrents: List<TorrentItem>) {
         viewModelScope.launch {
-            torrents.forEach { torrentsRepository.deleteTorrent(it.id) }
+            val repository = providerManager.getRepository()
+            torrents.forEach { repository.deleteTransfer(it.id) }
             if (torrents.size > 1) deletedTorrentLiveData.postEvent(TORRENTS_DELETED)
             else deletedTorrentLiveData.postEvent(TORRENT_DELETED)
         }
@@ -168,7 +188,8 @@ constructor(
 
     fun deleteDownloads(downloads: List<DownloadItem>) {
         viewModelScope.launch {
-            downloads.forEach { downloadRepository.deleteDownload(it.id) }
+            val repository = providerManager.getRepository()
+            downloads.forEach { repository.deleteDownload(it.id) }
             if (downloads.size > 1) deletedDownloadLiveData.postEvent(DOWNLOADS_DELETED)
             else deletedDownloadLiveData.postEvent(DOWNLOAD_DELETED)
         }

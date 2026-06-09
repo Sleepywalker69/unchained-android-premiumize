@@ -34,6 +34,9 @@ import com.github.livingwithhippos.unchained.data.model.TorrentItem
 import com.github.livingwithhippos.unchained.data.model.UnchainedNetworkException
 import com.github.livingwithhippos.unchained.data.model.User
 import com.github.livingwithhippos.unchained.data.model.UserAction
+import com.github.livingwithhippos.unchained.data.local.PremiumizeStore
+import com.github.livingwithhippos.unchained.data.model.domain.DebridProvider
+import com.github.livingwithhippos.unchained.data.model.domain.toUser
 import com.github.livingwithhippos.unchained.data.repository.AuthenticationRepository
 import com.github.livingwithhippos.unchained.data.repository.CustomDownloadRepository
 import com.github.livingwithhippos.unchained.data.repository.HostsRepository
@@ -41,6 +44,7 @@ import com.github.livingwithhippos.unchained.data.repository.InstallResult
 import com.github.livingwithhippos.unchained.data.repository.KodiDeviceRepository
 import com.github.livingwithhippos.unchained.data.repository.PluginRepository
 import com.github.livingwithhippos.unchained.data.repository.PluginRepository.Companion.TYPE_UNCHAINED
+import com.github.livingwithhippos.unchained.data.repository.ProviderManager
 import com.github.livingwithhippos.unchained.data.repository.RemoteDeviceRepository
 import com.github.livingwithhippos.unchained.data.repository.TorrentsRepository
 import com.github.livingwithhippos.unchained.data.repository.UpdateRepository
@@ -97,6 +101,8 @@ constructor(
     private val torrentsRepository: TorrentsRepository,
     private val updateRepository: UpdateRepository,
     private val remoteDeviceRepository: RemoteDeviceRepository,
+    private val providerManager: ProviderManager,
+    private val premiumizeStore: PremiumizeStore,
     @ApplicationContext applicationContext: Context,
 ) : ViewModel() {
 
@@ -384,7 +390,10 @@ constructor(
                     FSMAuthenticationSideEffect.ResetAuthentication -> {
                         // delete the current credentials and restart a login process
                         viewModelScope.launch {
-                            protoStore.deleteCredentials()
+                            when (providerManager.getActiveProvider()) {
+                                DebridProvider.PREMIUMIZE -> premiumizeStore.deleteCredentials()
+                                DebridProvider.REAL_DEBRID -> protoStore.deleteCredentials()
+                            }
                             fsmAuthenticationState.postValue(
                                 Event(FSMAuthenticationState.StartNewLogin)
                             )
@@ -402,19 +411,37 @@ constructor(
         return savedStateHandle["current_user_key"]
     }
 
+    fun getActiveProvider(): DebridProvider = providerManager.getActiveProvider()
+
     fun fetchUser() {
         viewModelScope.launch {
-            val credentials = protoStore.getCredentials()
-            val user = userRepository.getUserInfo(credentials.accessToken)
-            if (user != null) {
-                setCachedUser(user)
-                userLiveData.postEvent(user)
+            if (providerManager.getActiveProvider() == DebridProvider.PREMIUMIZE) {
+                when (val result = providerManager.getRepository().getUserInfo()) {
+                    is EitherResult.Success -> {
+                        val user = result.success.toUser()
+                        setCachedUser(user)
+                        userLiveData.postEvent(user)
+                    }
+                    is EitherResult.Failure ->
+                        Timber.e("Error fetching Premiumize user: ${result.failure}")
+                }
+            } else {
+                val credentials = protoStore.getCredentials()
+                val user = userRepository.getUserInfo(credentials.accessToken)
+                if (user != null) {
+                    setCachedUser(user)
+                    userLiveData.postEvent(user)
+                }
             }
         }
     }
 
     fun checkCredentials() {
         viewModelScope.launch {
+            if (providerManager.getActiveProvider() == DebridProvider.PREMIUMIZE) {
+                checkPremiumizeCredentials()
+                return@launch
+            }
             // todo: how to do this
             val credentials: Credentials.CurrentCredential? =
                 protoStore.credentialsFlow.firstOrNull { it.accessToken.isNotBlank() }
@@ -423,6 +450,32 @@ constructor(
             } else {
                 val userResult = userRepository.getUserOrError(credentials.accessToken)
                 parseUserResult(userResult, credentials.refreshToken == PRIVATE_TOKEN)
+            }
+        }
+    }
+
+    private suspend fun checkPremiumizeCredentials() {
+        if (!premiumizeStore.hasCredentials()) {
+            recheckAuthenticationStatus()
+            return
+        }
+        when (val result = providerManager.getRepository().getUserInfo()) {
+            is EitherResult.Success -> {
+                setCachedUser(result.success.toUser())
+                // the Premiumize api key behaves like a Real Debrid private token:
+                // it never needs refreshing
+                transitionAuthenticationMachine(FSMAuthenticationEvent.OnWorkingPrivateToken)
+            }
+            is EitherResult.Failure -> {
+                val failure = result.failure
+                if (failure is NetworkError && failure.error == -1) {
+                    // connectivity problem, do not invalidate the stored key
+                    transitionAuthenticationMachine(
+                        FSMAuthenticationEvent.OnUserActionNeeded(UserAction.NETWORK_ERROR)
+                    )
+                } else {
+                    transitionAuthenticationMachine(FSMAuthenticationEvent.OnNotWorking)
+                }
             }
         }
     }
@@ -478,6 +531,7 @@ constructor(
     }
 
     suspend fun isTokenPrivate(): Boolean {
+        if (providerManager.getActiveProvider() == DebridProvider.PREMIUMIZE) return true
         val credentials = protoStore.getCredentials()
         return credentials.refreshToken == PRIVATE_TOKEN
     }
@@ -804,9 +858,15 @@ constructor(
     /** Start the authentication machine flow */
     fun startAuthenticationMachine() {
         viewModelScope.launch {
-            // retrieve the datastore credentials (will return en empty instance if none)
-            val protoCredentials = protoStore.getCredentials()
-            if (protoCredentials.accessToken.isNotBlank()) {
+            val hasCredentials =
+                when (providerManager.getActiveProvider()) {
+                    DebridProvider.PREMIUMIZE -> premiumizeStore.hasCredentials()
+                    DebridProvider.REAL_DEBRID ->
+                        // retrieve the datastore credentials (will return en empty instance if
+                        // none)
+                        protoStore.getCredentials().accessToken.isNotBlank()
+                }
+            if (hasCredentials) {
                 transitionAuthenticationMachine(FSMAuthenticationEvent.OnAvailableCredentials)
             } else {
                 transitionAuthenticationMachine(FSMAuthenticationEvent.OnMissingCredentials)

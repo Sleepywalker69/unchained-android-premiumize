@@ -6,8 +6,11 @@ import androidx.lifecycle.viewModelScope
 import com.github.livingwithhippos.unchained.data.model.DownloadItem
 import com.github.livingwithhippos.unchained.data.model.UnchainedNetworkException
 import com.github.livingwithhippos.unchained.data.model.UploadedTorrent
+import com.github.livingwithhippos.unchained.data.model.domain.DebridProvider
+import com.github.livingwithhippos.unchained.data.model.domain.toDownloadItem
+import com.github.livingwithhippos.unchained.data.model.domain.toUploadedTorrent
 import com.github.livingwithhippos.unchained.data.repository.HostsRepository
-import com.github.livingwithhippos.unchained.data.repository.TorrentsRepository
+import com.github.livingwithhippos.unchained.data.repository.ProviderManager
 import com.github.livingwithhippos.unchained.data.repository.UnrestrictRepository
 import com.github.livingwithhippos.unchained.utilities.EitherResult
 import com.github.livingwithhippos.unchained.utilities.Event
@@ -24,8 +27,8 @@ import timber.log.Timber
 class NewDownloadViewModel
 @Inject
 constructor(
+    private val providerManager: ProviderManager,
     private val unrestrictRepository: UnrestrictRepository,
-    private val torrentsRepository: TorrentsRepository,
     private val hostsRepository: HostsRepository,
 ) : ViewModel() {
 
@@ -38,22 +41,24 @@ constructor(
 
     fun fetchUnrestrictedLink(link: String, password: String?, remote: Int? = null) {
         viewModelScope.launch {
-            // check if it's a folder link
+            val repository = providerManager.getRepository()
+            // check if it's a folder link (Real Debrid only feature)
             var isFolder = false
-            for (hostRegex in hostsRepository.getFoldersRegex()) {
-                val m: Matcher = Pattern.compile(hostRegex.regex).matcher(link)
-                if (m.matches()) {
-                    isFolder = true
-                    folderLiveData.postEvent(link)
-                    break
+            if (repository.provider == DebridProvider.REAL_DEBRID) {
+                for (hostRegex in hostsRepository.getFoldersRegex()) {
+                    val m: Matcher = Pattern.compile(hostRegex.regex).matcher(link)
+                    if (m.matches()) {
+                        isFolder = true
+                        folderLiveData.postEvent(link)
+                        break
+                    }
                 }
             }
             if (!isFolder) {
-                val response =
-                    unrestrictRepository.getEitherUnrestrictedLink(link, password, remote)
-                when (response) {
+                when (val response = repository.unrestrictLink(link, password)) {
                     is EitherResult.Failure -> networkExceptionLiveData.postEvent(response.failure)
-                    is EitherResult.Success -> downloadLiveData.postEvent(response.success)
+                    is EitherResult.Success ->
+                        downloadLiveData.postEvent(response.success.toDownloadItem())
                 }
             }
         }
@@ -82,22 +87,19 @@ constructor(
 
     fun fetchUploadedTorrent(binaryTorrent: ByteArray) {
         viewModelScope.launch {
-            val availableHosts = torrentsRepository.getAvailableHosts()
-            if (availableHosts.isNullOrEmpty()) {
-                Timber.e("Error fetching available hosts")
-            } else {
-                val uploadedTorrent =
-                    torrentsRepository.addTorrent(binaryTorrent, availableHosts.first().host)
-                when (uploadedTorrent) {
-                    is EitherResult.Failure -> {
-                        networkExceptionLiveData.postEvent(uploadedTorrent.failure)
-                    }
-                    is EitherResult.Success -> {
-                        // todo: add checks for already chosen torrent/magnet (if possible),
-                        // otherwise we get
-                        // multiple downloads
-                        linkLiveData.postEvent(Link.Torrent(uploadedTorrent.success))
-                    }
+            val repository = providerManager.getRepository()
+            when (val uploadedTorrent = repository.addTorrent(binaryTorrent)) {
+                is EitherResult.Failure -> {
+                    Timber.e("Error uploading torrent: ${uploadedTorrent.failure}")
+                    networkExceptionLiveData.postEvent(uploadedTorrent.failure)
+                }
+                is EitherResult.Success -> {
+                    // todo: add checks for already chosen torrent/magnet (if possible),
+                    // otherwise we get
+                    // multiple downloads
+                    linkLiveData.postEvent(
+                        Link.Torrent(uploadedTorrent.success.toUploadedTorrent())
+                    )
                 }
             }
         }

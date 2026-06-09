@@ -35,12 +35,19 @@ import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.navigateUp
 import androidx.navigation.ui.setupActionBarWithNavController
 import androidx.navigation.ui.setupWithNavController
+import androidx.work.Constraints
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import com.github.livingwithhippos.unchained.BuildConfig
 import com.github.livingwithhippos.unchained.R
 import com.github.livingwithhippos.unchained.data.model.UserAction
+import com.github.livingwithhippos.unchained.data.model.domain.DebridProvider
 import com.github.livingwithhippos.unchained.data.repository.PluginRepository.Companion.TYPE_UNCHAINED
 import com.github.livingwithhippos.unchained.data.service.ForegroundTorrentService
 import com.github.livingwithhippos.unchained.data.service.ForegroundTorrentService.Companion.KEY_TORRENT_ID
+import com.github.livingwithhippos.unchained.data.service.TransferMonitorWorker
 import com.github.livingwithhippos.unchained.databinding.ActivityMainBinding
 import com.github.livingwithhippos.unchained.settings.view.SettingsActivity
 import com.github.livingwithhippos.unchained.settings.view.SettingsFragment.Companion.KEY_TORRENT_NOTIFICATIONS
@@ -392,8 +399,7 @@ class MainActivity : AppCompatActivity() {
             if (key == KEY_TORRENT_NOTIFICATIONS) {
                 val enableTorrentNotifications = sharedPreferences.getBoolean(key, false)
                 if (enableTorrentNotifications) {
-                    val notificationIntent = Intent(this, ForegroundTorrentService::class.java)
-                    ContextCompat.startForegroundService(this, notificationIntent)
+                    startTransferMonitoring()
                 }
             }
         }
@@ -620,8 +626,7 @@ class MainActivity : AppCompatActivity() {
             // fixme: the user can enable this service without being logged in, add a check when
             // enabling
             // it in the settings fragment
-            val notificationIntent = Intent(this, ForegroundTorrentService::class.java)
-            ContextCompat.startForegroundService(this, notificationIntent)
+            startTransferMonitoring()
         }
 
         viewModel.migrateKodiPreferences()
@@ -655,6 +660,33 @@ class MainActivity : AppCompatActivity() {
 
     override fun onSupportNavigateUp(): Boolean {
         return navController.navigateUp(appBarConfiguration)
+    }
+
+    /**
+     * Starts monitoring the active transfers. Real Debrid uses the legacy foreground service,
+     * Premiumize uses a periodic WorkManager job which also survives the Android 15 six hours
+     * dataSync limit.
+     */
+    private fun startTransferMonitoring() {
+        if (viewModel.getActiveProvider() == DebridProvider.PREMIUMIZE) {
+            val request =
+                PeriodicWorkRequestBuilder<TransferMonitorWorker>(15, java.util.concurrent.TimeUnit.MINUTES)
+                    .setConstraints(
+                        Constraints.Builder()
+                            .setRequiredNetworkType(NetworkType.CONNECTED)
+                            .build()
+                    )
+                    .build()
+            WorkManager.getInstance(this)
+                .enqueueUniquePeriodicWork(
+                    TransferMonitorWorker.WORK_NAME,
+                    ExistingPeriodicWorkPolicy.KEEP,
+                    request,
+                )
+        } else {
+            val notificationIntent = Intent(this, ForegroundTorrentService::class.java)
+            ContextCompat.startForegroundService(this, notificationIntent)
+        }
     }
 
     private fun getIntentData() {

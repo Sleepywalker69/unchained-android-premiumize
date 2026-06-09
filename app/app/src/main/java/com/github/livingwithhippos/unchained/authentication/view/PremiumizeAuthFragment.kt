@@ -7,18 +7,19 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
-import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.github.livingwithhippos.unchained.R
 import com.github.livingwithhippos.unchained.authentication.viewmodel.PremiumizeAuthViewModel
+import com.github.livingwithhippos.unchained.base.UnchainedFragment
 import com.github.livingwithhippos.unchained.databinding.FragmentPremiumizeAuthBinding
+import com.github.livingwithhippos.unchained.statemachine.authentication.FSMAuthenticationEvent
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
-class PremiumizeAuthFragment : Fragment() {
+class PremiumizeAuthFragment : UnchainedFragment() {
 
     private val viewModel: PremiumizeAuthViewModel by viewModels()
 
@@ -69,6 +70,11 @@ class PremiumizeAuthFragment : Fragment() {
                 is PremiumizeAuthViewModel.AuthResult.Success -> {
                     binding.progressBar.visibility = View.GONE
                     binding.tvStatus.visibility = View.GONE
+                    // moves the authentication machine to CheckCredentials, which validates the
+                    // stored api key and unlocks the rest of the app
+                    activityViewModel.transitionAuthenticationMachine(
+                        FSMAuthenticationEvent.OnPrivateToken
+                    )
                     findNavController()
                         .navigate(R.id.actionPremiumizeAuthToUser)
                 }

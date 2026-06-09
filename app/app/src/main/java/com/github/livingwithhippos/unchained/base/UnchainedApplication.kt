@@ -5,6 +5,8 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.hilt.work.HiltWorkerFactory
+import androidx.work.Configuration
 import com.github.livingwithhippos.unchained.R
 import com.github.livingwithhippos.unchained.data.local.CompleteRemoteService
 import com.github.livingwithhippos.unchained.data.local.ProtoStore
@@ -26,9 +28,14 @@ import kotlinx.coroutines.launch
  * start
  */
 @HiltAndroidApp
-class UnchainedApplication : Application() {
+class UnchainedApplication : Application(), Configuration.Provider {
 
     @Inject lateinit var preferences: SharedPreferences
+
+    @Inject lateinit var workerFactory: HiltWorkerFactory
+
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder().setWorkerFactory(workerFactory).build()
 
     @Inject lateinit var activityCallback: ThemingCallback
 

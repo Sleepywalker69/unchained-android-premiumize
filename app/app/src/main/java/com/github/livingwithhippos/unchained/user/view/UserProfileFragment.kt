@@ -16,6 +16,7 @@ import coil.load
 import com.github.livingwithhippos.unchained.R
 import com.github.livingwithhippos.unchained.base.UnchainedFragment
 import com.github.livingwithhippos.unchained.data.model.User
+import com.github.livingwithhippos.unchained.data.model.domain.DebridProvider
 import com.github.livingwithhippos.unchained.databinding.FragmentUserProfileBinding
 import com.github.livingwithhippos.unchained.settings.view.SettingsActivity
 import com.github.livingwithhippos.unchained.settings.view.SettingsFragment.Companion.KEY_REFERRAL_ASKED
@@ -111,9 +112,13 @@ class UserProfileFragment : UnchainedFragment() {
                     }
 
                     FSMAuthenticationState.StartNewLogin -> {
-                        // the user reset the login, go to the auth fragment
+                        // the user reset the login, go to the auth fragment of the active provider
                         val action =
-                            UserProfileFragmentDirections.actionUserToAuthenticationFragment()
+                            if (
+                                activityViewModel.getActiveProvider() == DebridProvider.PREMIUMIZE
+                            )
+                                UserProfileFragmentDirections.actionUserToPremiumizeAuthFragment()
+                            else UserProfileFragmentDirections.actionUserToAuthenticationFragment()
                         safeNavigate(action)
                     }
 

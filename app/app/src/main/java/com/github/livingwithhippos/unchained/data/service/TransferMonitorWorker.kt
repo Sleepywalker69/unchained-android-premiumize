@@ -47,7 +47,7 @@ constructor(
                         as NotificationManager
                 val notification =
                     NotificationCompat.Builder(applicationContext, TORRENT_CHANNEL_ID)
-                        .setSmallIcon(R.drawable.icon_transfer)
+                        .setSmallIcon(R.drawable.icon_cloud_done)
                         .setContentTitle(transfer.name)
                         .setContentText(
                             applicationContext.getString(R.string.download_complete)

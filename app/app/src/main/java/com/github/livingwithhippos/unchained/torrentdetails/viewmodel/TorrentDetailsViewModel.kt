@@ -6,8 +6,9 @@ import androidx.lifecycle.viewModelScope
 import com.github.livingwithhippos.unchained.data.model.DownloadItem
 import com.github.livingwithhippos.unchained.data.model.TorrentItem
 import com.github.livingwithhippos.unchained.data.model.UnchainedNetworkException
-import com.github.livingwithhippos.unchained.data.repository.TorrentsRepository
-import com.github.livingwithhippos.unchained.data.repository.UnrestrictRepository
+import com.github.livingwithhippos.unchained.data.model.domain.toDownloadItem
+import com.github.livingwithhippos.unchained.data.model.domain.toTorrentItem
+import com.github.livingwithhippos.unchained.data.repository.ProviderManager
 import com.github.livingwithhippos.unchained.utilities.EitherResult
 import com.github.livingwithhippos.unchained.utilities.Event
 import com.github.livingwithhippos.unchained.utilities.endedStatusList
@@ -28,8 +29,7 @@ import kotlin.time.Duration.Companion.milliseconds
 class TorrentDetailsViewModel
 @Inject
 constructor(
-    private val torrentsRepository: TorrentsRepository,
-    private val unrestrictRepository: UnrestrictRepository,
+    private val providerManager: ProviderManager,
 ) : ViewModel() {
 
     val torrentLiveData = MutableLiveData<Event<TorrentItem?>>()
@@ -41,8 +41,8 @@ constructor(
 
     fun getFullTorrentInfo(id: String) {
         viewModelScope.launch {
-            val torrentData = torrentsRepository.getTorrentInfo(id)
-            if (torrentData != null) torrentLiveData.postEvent(torrentData)
+            val torrentData = providerManager.getRepository().getTransferInfo(id)
+            if (torrentData != null) torrentLiveData.postEvent(torrentData.toTorrentItem())
         }
     }
 
@@ -56,7 +56,8 @@ constructor(
         scope.launch {
             // / maybe job.isActive?
             while (isActive) {
-                val torrentData = torrentsRepository.getTorrentInfo(id)
+                val torrentData =
+                    providerManager.getRepository().getTransferInfo(id)?.toTorrentItem()
                 if (torrentData != null) torrentLiveData.postEvent(torrentData)
                 if (endedStatusList.contains(torrentData?.status)) job.cancelIfActive()
 
@@ -67,7 +68,7 @@ constructor(
 
     fun deleteTorrent(id: String) {
         viewModelScope.launch {
-            when (val deleted = torrentsRepository.deleteTorrent(id)) {
+            when (val deleted = providerManager.getRepository().deleteTransfer(id)) {
                 is EitherResult.Failure -> {
                     errorsLiveData.postEvent(listOf(deleted.failure))
                 }
@@ -82,14 +83,15 @@ constructor(
         viewModelScope.launch {
             val links = torrent.links
             if (links.isNotEmpty()) {
-                val items = unrestrictRepository.getUnrestrictedLinkList(links)
-
-                val values =
-                    items.filterIsInstance<EitherResult.Success<DownloadItem>>().map { it.success }
-                val errors =
-                    items.filterIsInstance<EitherResult.Failure<UnchainedNetworkException>>().map {
-                        it.failure
+                val repository = providerManager.getRepository()
+                val values = mutableListOf<DownloadItem>()
+                val errors = mutableListOf<UnchainedNetworkException>()
+                links.forEach { link ->
+                    when (val result = repository.unrestrictLink(link)) {
+                        is EitherResult.Success -> values.add(result.success.toDownloadItem())
+                        is EitherResult.Failure -> errors.add(result.failure)
                     }
+                }
 
                 // since the torrent want to open a download details page we oen only the first link
                 downloadLiveData.postEvent(values.firstOrNull())

@@ -784,4 +784,5 @@
     <string name="cached">Cached</string>
     <string name="not_cached">Not Cached</string>
     <string name="provider_switch_warning">Switching providers will change which service handles your downloads.</string>
+    <string name="provider_changed_restart">Provider changed, restart the app to apply</string>
 </resources>
